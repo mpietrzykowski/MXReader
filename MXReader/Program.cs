@@ -9,12 +9,13 @@ namespace MXReader {
     class Program {
 
         private const int HEADER_LENGTH = 12;
+        
         private const int DNS_PORT = 53;
 
-        private static string DNSIPAddress = "8.8.8.8";
+        private static string DNSIPAddress = "8.8.4.4";
 
         private static string Domain = "gmail.com";
-        // private static string Domain = "hotmail.com";
+        // private static string Domain = "aol.com";
         
 
         private const int QUERY_LENGTH = 512;
@@ -49,79 +50,6 @@ namespace MXReader {
             return data;
         }
 
-        private static ushort ToUInt16BigEndian(byte[] data, int offset) {
-            return (ushort)((data[offset] << 8) + data[offset + 1]);
-        }
-
-        private static ushort DecodeName(byte[] data, ushort offset){
-            StringBuilder builder = new();
-            ushort length = data[offset++];
-
-            while (length > 0) {
-                builder.Append(Encoding.ASCII.GetChars(data, offset, length));
-                offset += length;
-                length = data[offset++];
-                if (length > 0) {
-                    builder.Append('.');
-                }
-            }
-
-            return offset;
-        }
-        
-
-        private static void Decode (byte[] data) {
-            //Header
-            bool b = BitConverter.IsLittleEndian;
-            ushort id = ToUInt16BigEndian(data, 0);
-            byte opcode = (byte)((data[2] & 0b0111_1000) >> 3);
-            bool QR = (data[2] & 0b1000_0000) > 0;
-            bool AA = (data[2] & 0b0000_0100) > 0;
-            bool TC = (data[2] & 0b0000_0010) > 0;
-            byte rcode = (byte)(data[3] & 0b0001_1111);
-            ushort qdCount = ToUInt16BigEndian(data, 4);
-            ushort anCount = ToUInt16BigEndian(data, 6);
-            ushort nsCount = ToUInt16BigEndian(data, 8);
-            ushort arCount = ToUInt16BigEndian(data, 10);
-
-
-            //Question
-            // if qdCount
-            ushort offset = DecodeName(data, HEADER_LENGTH);
-
-            ushort type = ToUInt16BigEndian(data, offset);
-            offset += 2;
-
-            ushort class_ = ToUInt16BigEndian(data, offset);
-            offset += 2;
-
-            //Answer
-            //offset = DecodeName(data, offset);
-            offset += 2;
-
-            ushort type2 = ToUInt16BigEndian(data, offset);
-            offset += 2;
-
-            ushort class2_ = ToUInt16BigEndian(data, offset);
-            offset += 2;
-
-            uint ttl = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(new ReadOnlySpan<byte>(data, offset, 4));
-            // ushort ttl = Convert. ToUInt16BigEndian(data, offset);
-            uint ttl2 = BitConverter.ToUInt32(data, offset);
-            offset += 4;
-
-            TimeSpan ts = TimeSpan.FromSeconds(ttl);
-            TimeSpan ts2 = TimeSpan.FromSeconds(ttl2);
-
-            ushort rdlength = ToUInt16BigEndian(data, offset);
-            offset += 2;
-
-            string rdata = Encoding.ASCII.GetString(data, offset, rdlength);
-            offset += rdlength;
-            
-
-
-        }
 
         private static void Query(){
             UdpClient udp = new (DNSIPAddress, DNS_PORT);
@@ -132,7 +60,7 @@ namespace MXReader {
 			data = udp.Receive(ref endpoint);
 
             char[] messege = Encoding.ASCII.GetChars(data);
-            Decode(data);
+            Message m = Message.FromRawData(data);
         }
 
         static void Main(string[] args) {
