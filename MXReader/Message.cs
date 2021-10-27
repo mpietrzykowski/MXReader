@@ -1,3 +1,7 @@
+/*
+Author: Marcin Pietrzykowski
+*/
+
 namespace MXReader {
     public class Message {
 
@@ -41,7 +45,11 @@ namespace MXReader {
         #endregion
 
         #region Properties 
-        
+
+        public ResourceRecord[] Additional {
+            get { return this.additional; }
+        }
+
         public ResourceRecord[] Answers {
             get { return this.answers; }
         }
@@ -84,6 +92,7 @@ namespace MXReader {
 
             ushort offset = HEADER_LENGTH;
 
+            //Sections
             this.questions = DecodeRecords<Section>(data, ref offset, this.qdCount);
             this.answers = DecodeRecords<ResourceRecord>(data, ref offset, this.anCount);
             this.authority = DecodeRecords<ResourceRecord>(data, ref offset, this.nsCount);

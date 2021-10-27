@@ -1,3 +1,7 @@
+/*
+Author: Marcin Pietrzykowski
+*/
+
 using System;
 using System.Net;
 using System.Text;
@@ -36,19 +40,6 @@ namespace MXReader {
         }
     }
 
-    public class NSRData : IRData {
-
-        private string nsdname;
-
-        public void Decode(byte[] data, ref ushort offset, ushort rdlength) {
-            this.nsdname = Utils.DecodeDomainName(data, ref offset);
-        }
-
-        public override string ToString() {
-            return nsdname;
-        }
-    }
-
     public class MXRData : IRData {
 
         private string exchange;
@@ -72,6 +63,19 @@ namespace MXReader {
 
         public override string ToString() {
             return string.Format("Preference: {0}, Exchange: {1}", preference, exchange);
+        }
+    }
+
+    public class NSRData : IRData {
+
+        private string nsdname;
+
+        public void Decode(byte[] data, ref ushort offset, ushort rdlength) {
+            this.nsdname = Utils.DecodeDomainName(data, ref offset);
+        }
+
+        public override string ToString() {
+            return nsdname;
         }
     }
 

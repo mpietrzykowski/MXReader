@@ -1,3 +1,7 @@
+/*
+Author: Marcin Pietrzykowski
+*/
+
 using System;
 using System.Text;
 
@@ -40,7 +44,6 @@ namespace MXReader {
             data[offset++] = (byte)((ushort)this.type >> 8); data[offset++] = (byte)this.type;
             data[offset++] = 0; data[offset++] = (byte)this.class_;
 
-
             return true;
         }
 
@@ -73,7 +76,7 @@ namespace MXReader {
         public override void Decode(byte[] data, ref ushort offset) {
             base.Decode(data, ref offset);
 
-            //W sumie zawsze mogłem napisać własną i umieścić ą w Utils... ale to tylko program ehmm na zaliczenie...
+            //W sumie zawsze mogłem napisać własną i umieścić ją w Utils... ale to tylko program ehmm na "zaliczenie"...
             this.ttl = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(new ReadOnlySpan<byte>(data, offset, 4));
             offset += 4;
 
