@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -11,23 +12,29 @@ namespace MXReader {
 
         private string dns;
 
+        private object threadLock;
+
+        private int threadID = 0;
+
         private IPAddress ip;
 
         private UdpClient udpClient;
 
         private StringBuilder globalBuilder;
 
-        public MXReader(string dns) {
-            this.ip = IPAddress.Parse(dns);
+        public MXReader(IPAddress ip) {
+            this.ip = ip;
             this.udpClient = new UdpClient();
             globalBuilder = new StringBuilder();
+
+            threadLock = new object();
         }
 
         public void Connect() {
             this.udpClient.Connect(this.ip, DNS_PORT);
         }
 
-        public string Query(string[] domains) {
+        public string Query(List<string> domains) {
             IPEndPoint endpoint = null;
             StringBuilder builder = new();
             builder.AppendFormat("DNS: {0}\n\n", this.ip.ToString());
@@ -48,8 +55,12 @@ namespace MXReader {
                 Message answerMX = Message.FromRawData(data);
 
                 if (answerMX.RCode > 0) {
-                    builder.Append(Message.ResponseCodeMessageShort(answerMX.RCode));
+                    builder.AppendFormat("\t{0}", Message.ResponseCodeMessageShort(answerMX.RCode));
                     continue;
+                }
+
+                if (answerMX.Answers.Length == 0) {
+                    builder.AppendFormat("\tEmpty answer section\n");
                 }
 
                 foreach (var answer in answerMX.Answers) {
@@ -98,6 +109,11 @@ namespace MXReader {
         }
 
         public void QueryDomainWorker(object o) {
+            int id;
+            lock(this.threadLock) {
+                id = threadID++;
+            }
+
             UdpClient udpClient = new UdpClient();
             udpClient.Connect(ip, DNS_PORT);
 
@@ -113,6 +129,9 @@ namespace MXReader {
             questionMx.Add(QType.MX, domain);
 
             data = questionMx.Encode();
+
+            // Console.WriteLine("q {0} t {1}", questionMx.ID, id);
+
             // lock (this.udpClient) {
             //     int i = this.udpClient.Send(data, data.Length);
             //     data = this.udpClient.Receive(ref endpoint);
@@ -120,68 +139,190 @@ namespace MXReader {
             int i = udpClient.Send(data, data.Length);
             data = udpClient.Receive(ref endpoint);
 
+            // Console.WriteLine(id + " - " + endpoint.Address.ToString() + ":" + endpoint.Port);
+
             Message answerMX = Message.FromRawData(data);
 
+            Console.WriteLine("mx {0} {1}", id, questionMx.ID == answerMX.ID);
+
             if (answerMX.RCode > 0) {
-                builder.Append(Message.ResponseCodeMessageShort(answerMX.RCode));
-            }
+                builder.AppendFormat("\t{0}\n", Message.ResponseCodeMessageShort(answerMX.RCode));
+            } else {
 
-            foreach (var answer in answerMX.Answers) {
-                builder.Append('\t');
+                if (answerMX.Answers.Length == 0) {
+                    builder.AppendFormat("\tEmpty answer section\n");
+                }
 
-                if (answer.Type == QType.MX) {
-                    Message.MXRData mx = (Message.MXRData)answer.RData;
+                foreach (var answer in answerMX.Answers) {
+                    builder.Append('\t');
 
-                    builder.AppendFormat("Preferences: {0}, Exchanger: {1}, IP: ", mx.Preference, mx.Exchange);
+                    if (answer.Type == QType.MX) {
+                        Message.MXRData mx = (Message.MXRData)answer.RData;
 
-                    Message questionA = new();
-                    questionA.Add(QType.A, mx.Exchange);
+                        builder.AppendFormat("Preferences: {0}, Exchanger: {1}, IP: ", mx.Preference, mx.Exchange);
 
-                    data = questionA.Encode();
-                    // lock (this.udpClient) {
-                    //     udpClient.Send(data, data.Length);
+                        Message questionA = new();
+                        questionA.Add(QType.A, mx.Exchange);
 
-                    //     data = this.udpClient.Receive(ref endpoint);
-                    // }
-                    
-                    udpClient.Send(data, data.Length);
-                    data = udpClient.Receive(ref endpoint);
-                    
-                    Message answerA = Message.FromRawData(data);
+                        data = questionA.Encode();
 
-                    if (answerA.RCode > 0) {
-                        builder.Append(Message.ResponseCodeMessageShort(answerA.RCode));
-                        builder.Append('\n');
-                        continue;
-                    }
+                        // Console.WriteLine("q {0} t {1}", questionA.ID, id);
+                        // lock (this.udpClient) {
+                        //     udpClient.Send(data, data.Length);
 
-                    if (answerA.Answers.Length > 0) {
-                        foreach (var item in answerA.Answers) {
-                            if (item.Type == QType.A) {
-                                Message.AData aData = (Message.AData)item.RData;
+                        //     data = this.udpClient.Receive(ref endpoint);
+                        // }
 
-                                foreach (var ip in aData.IPs) {
-                                    builder.AppendFormat("{0}, ", ip.ToString());
+                        udpClient.Send(data, data.Length);
+                        data = udpClient.Receive(ref endpoint);
+
+
+                        //Console.WriteLine(id + " - " + endpoint.Address.ToString() + ":" + endpoint.Port);
+
+                        Message answerA = Message.FromRawData(data);
+
+                        Console.WriteLine("a {0} {1}", id, questionA.ID == answerA.ID);
+
+
+                        if (answerA.RCode > 0) {
+                            builder.Append(Message.ResponseCodeMessageShort(answerA.RCode));
+                            builder.Append('\n');
+                            continue;
+                        }
+
+                        if (answerA.Answers.Length > 0) {
+                            foreach (var item in answerA.Answers) {
+                                if (item.Type == QType.A) {
+                                    Message.AData aData = (Message.AData)item.RData;
+
+                                    foreach (var ip in aData.IPs) {
+                                        builder.AppendFormat("{0}, ", ip.ToString());
+                                    }
                                 }
                             }
+                            builder.Length -= 2;
+                        } else {
+                            builder.Append("empty answer section");
                         }
-                        builder.Length -= 2;
-                    } else {
-                        builder.Append("empty answer section");
                     }
+                    builder.Append('\n');
                 }
-                builder.Append('\n');
             }
-
             lock (this.globalBuilder) {
                 this.globalBuilder.Append(builder);
             }
         }
 
+        public void QueryDomainWorkerOld(object o) {
+            int id;
+            lock(this.threadLock) {
+                id = threadID++;
+            }
 
-        public string QueryAsync(string[] domains) {
-            Thread[] pool = new Thread[domains.Length];
-            for (int i = 0; i < domains.Length; i++) {
+            UdpClient udpClient = new UdpClient();
+            udpClient.Connect(ip, DNS_PORT);
+
+            IPEndPoint endpoint = null;
+            StringBuilder builder = new();
+            byte[] data;
+            string domain = (string)o;
+
+            builder.Append(domain);
+            builder.Append('\n');
+
+            Message questionMx = new();
+            questionMx.Add(QType.MX, domain);
+
+            data = questionMx.Encode();
+
+            // Console.WriteLine("q {0} t {1}", questionMx.ID, id);
+
+            // lock (this.udpClient) {
+            //     int i = this.udpClient.Send(data, data.Length);
+            //     data = this.udpClient.Receive(ref endpoint);
+            // }
+            int i = udpClient.Send(data, data.Length);
+            data = udpClient.Receive(ref endpoint);
+
+            // Console.WriteLine(id + " - " + endpoint.Address.ToString() + ":" + endpoint.Port);
+
+            Message answerMX = Message.FromRawData(data);
+
+            Console.WriteLine("mx {0} {1}", id, questionMx.ID == answerMX.ID);
+
+            if (answerMX.RCode > 0) {
+                builder.AppendFormat("\t{0}\n", Message.ResponseCodeMessageShort(answerMX.RCode));
+            } else {
+
+                if (answerMX.Answers.Length == 0) {
+                    builder.AppendFormat("\tEmpty answer section\n");
+                }
+
+                foreach (var answer in answerMX.Answers) {
+                    builder.Append('\t');
+
+                    if (answer.Type == QType.MX) {
+                        Message.MXRData mx = (Message.MXRData)answer.RData;
+
+                        builder.AppendFormat("Preferences: {0}, Exchanger: {1}, IP: ", mx.Preference, mx.Exchange);
+
+                        Message questionA = new();
+                        questionA.Add(QType.A, mx.Exchange);
+
+                        data = questionA.Encode();
+
+                        // Console.WriteLine("q {0} t {1}", questionA.ID, id);
+                        // lock (this.udpClient) {
+                        //     udpClient.Send(data, data.Length);
+
+                        //     data = this.udpClient.Receive(ref endpoint);
+                        // }
+
+                        udpClient.Send(data, data.Length);
+                        data = udpClient.Receive(ref endpoint);
+
+
+                        //Console.WriteLine(id + " - " + endpoint.Address.ToString() + ":" + endpoint.Port);
+
+                        Message answerA = Message.FromRawData(data);
+
+                        Console.WriteLine("a {0} {1}", id, questionA.ID == answerA.ID);
+
+
+                        if (answerA.RCode > 0) {
+                            builder.Append(Message.ResponseCodeMessageShort(answerA.RCode));
+                            builder.Append('\n');
+                            continue;
+                        }
+
+                        if (answerA.Answers.Length > 0) {
+                            foreach (var item in answerA.Answers) {
+                                if (item.Type == QType.A) {
+                                    Message.AData aData = (Message.AData)item.RData;
+
+                                    foreach (var ip in aData.IPs) {
+                                        builder.AppendFormat("{0}, ", ip.ToString());
+                                    }
+                                }
+                            }
+                            builder.Length -= 2;
+                        } else {
+                            builder.Append("empty answer section");
+                        }
+                    }
+                    builder.Append('\n');
+                }
+            }
+            lock (this.globalBuilder) {
+                this.globalBuilder.Append(builder);
+            }
+        }
+
+        public string QueryAsync(List<string> domains) {
+            globalBuilder.AppendFormat("DNS: {0}\n\n", this.ip.ToString());
+
+            Thread[] pool = new Thread[domains.Count];
+            for (int i = 0; i < domains.Count; i++) {
                 Thread thread = new Thread(new ParameterizedThreadStart(QueryDomainWorker));
                 thread.Start(domains[i]);
                 pool[i] = thread;

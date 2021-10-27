@@ -12,6 +12,8 @@ namespace MXReader {
 
         private static ushort nextID = 0;
 
+        private static object myLock = new object();
+
         public static string ResponseCodeMessageShort(int rcode) {
             switch (rcode) {
                 case 0:
@@ -30,7 +32,6 @@ namespace MXReader {
                     return "Not implemented";
             }
         }
-
 
         public interface IRData {
             void Decode(byte[] data, ref ushort offset, ushort rdlength);
@@ -238,6 +239,10 @@ namespace MXReader {
             get { return this.answers; }
         }
 
+        public int ID {
+            get { return this.id; }
+        }
+
         public byte RCode {
             get { return this.rcode; }
         }
@@ -286,7 +291,9 @@ namespace MXReader {
         public byte[] Encode() {
             byte[] data = new byte[QUERY_LENGTH];
 
-            this.id = nextID++;
+            lock (myLock) {
+                this.id = nextID++;
+            }
 
             this.qdCount = (ushort)this.questions.Count;
 
