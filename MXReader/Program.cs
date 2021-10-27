@@ -72,7 +72,6 @@ namespace MXReader {
             }
 
             MXReader reader = new (ip);
-            reader.Connect();
 
             // domains = new List<string>{
             //     "gmail.com",
@@ -81,8 +80,8 @@ namespace MXReader {
             //     "yahoo.com"
             // };
 
-            // string report = reader.Query(domains);
-            string report = reader.QueryAsync(domains);
+            string report = reader.Query(domains);
+            //string report = reader.QueryAsync(domains);
 
             Console.WriteLine(report);
 
