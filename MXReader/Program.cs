@@ -8,6 +8,7 @@ using System.IO;
 using System.Net;
 
 namespace MXReader {
+    //Simple program to read MX records for domains
     class Program {
         private static string dns;
 

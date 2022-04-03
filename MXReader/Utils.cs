@@ -5,6 +5,7 @@ Author: Marcin Pietrzykowski
 using System.Text;
 
 namespace MXReader {
+    //Differenet Utils Methods
     public static class Utils {
         
         public static string DecodeDomainName(byte[] data, ref ushort offset) {

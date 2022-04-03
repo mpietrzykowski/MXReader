@@ -6,6 +6,7 @@ using System;
 using System.Text;
 
 namespace MXReader {
+    //Implementation of sections from message
     public class Section {
         protected string name;
 

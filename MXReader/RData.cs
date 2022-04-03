@@ -7,6 +7,7 @@ using System.Net;
 using System.Text;
 
 namespace MXReader {
+    //Implementation of different Data type
 
     public interface IRData {
         void Decode(byte[] data, ref ushort offset, ushort rdlength);

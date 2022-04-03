@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace MXReader {
+    //MX record reader form DNS
     public sealed class MXReader {
 
         #region Fields

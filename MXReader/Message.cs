@@ -3,6 +3,7 @@ Author: Marcin Pietrzykowski
 */
 
 namespace MXReader {
+    //Implementation of messege
     public class Message {
 
         #region Fields
