@@ -76,7 +76,7 @@ namespace MXReader {
         public override void Decode(byte[] data, ref ushort offset) {
             base.Decode(data, ref offset);
 
-            //W sumie zawsze mogłem napisać własną i umieścić ją w Utils... ale to tylko program ehmm na "zaliczenie"...
+            //TODO: własna i metoda do umieszczenia w Utils
             this.ttl = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(new ReadOnlySpan<byte>(data, offset, 4));
             offset += 4;
 
